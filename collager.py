@@ -1,22 +1,35 @@
 from PIL import Image
 from tqdm import tqdm
-from dirhash import dirhash
-import os
+import os, logging
 
-# вычисляет хэш нескольких файлов
-from hashlib import md5
-def files_hash(files):
-  temp = md5()
-  for file in tqdm(files, desc="calculating files hash"):
-    with open(file, "rb") as f:
-      for chunk in iter(lambda: f.read(4096), b""):
-        temp.update(chunk)
-  return temp.hexdigest()
+log_level = logging.DEBUG
+
+logger = logging.getLogger(__name__)
+logger.setLevel(log_level)
+
+class TqdmLoggingHandler(logging.Handler):
+  def __init__(self, level=logging.NOTSET):
+    super().__init__(level)
+
+  def emit(self, record):
+    try:
+      msg = self.format(record)
+      tqdm.write(msg)
+      self.flush()
+    except Exception:
+      self.handleError(record)
+
+tqdm_handler = TqdmLoggingHandler()
+tqdm_handler.setLevel(log_level)
+
+formatter = logging.Formatter('[%(levelname)s]: %(message)s')
+tqdm_handler.setFormatter(formatter)
+
+# add the handler to the logger
+logger.addHandler(tqdm_handler)
 
 # путь к папке с картинками
 path = "C:\\Users\\Potato\\Desktop\\cats_dataset"
-cache_file = ".cache_data"
-cache_path = os.path.join(path, cache_file)
 
 # штрина и высота
 width, height = (1920, 1080)
@@ -34,54 +47,25 @@ images = [file for file in images
   )
 ]
 
-# всегда нужно вычислять хэш изображений
-images_hash = files_hash(images)
-print("image hash:", images_hash)
+# рассчет соотношения сторон для каждого изображения
+logger.debug(f"images in folder: {len(images)}")
 
-# вычислить время выполнения функции
-def timeit(func):
-  import time
-  def wrapper(*args, **kwargs):
-    start = time.time()
-    result = func(*args, **kwargs)
-    end = time.time()
-    print("time:", end - start)
-    return result
-  return wrapper
-
-dirhash_md5 = timeit(dirhash)(path, "md5", match=["*.jpg", "*.jpeg", "*.png"])
-# вывод:
-# так как нужно проверять актуальность кеша с помощью хеширования,
-# то данный способ крайне неоптимальный
-
-print("dirhash md5:", dirhash_md5)
-
-# проверяем кеш
-if os.path.exists(cache_path):
-  with open(cache_path, "r") as file:
-    cache_hash = file.readline().strip()
-    print("cache hash:", cache_hash)
-    print("valid:", images_hash == cache_hash)
-    cache_data = [line.split(" | ") for line in file.read().splitlines()]
-    cache_data = {file:ratio for file, ratio in cache_data}
-
-if not os.path.exists(cache_path) or cache_hash != images_hash:
-  # рассчет соотношения сторон для каждого изображения и сохранение в файл
-  cache_data = {}
-  for image in tqdm(images, desc="calculating ratios\t"):
-    # TODO: добавить проверку на неправильный формат изображения или битый файл
+cache_data = {}
+for image in tqdm(images[:], desc="calculating ratios"):
+  try:
     img = Image.open(image)
     width, height = img.size
     ratio = width / height
     cache_data[image] = ratio
     img.close()
-  print("saving cache")
-  with open(cache_path, "w") as file:
-    file.write(images_hash + "\n")
-    for image, ratio in cache_data.items():
-      file.write(f"{image} | {ratio}\n")
+  except:
+    logger.warning(f"unable to open the image: {os.path.basename(image)}")
+    images.remove(image)
+
+logger.debug(f"valid images: {len(images)}")
 
 collage = Image.new("RGBA", (width, height))
 
-for line_n in range(lines):
+for line_n in tqdm(range(lines)):
+  # logger.debug(f"line: {line_n}") # handler is working!
   pass # конструировать строку картинок и добавлять ее на коллаж
