@@ -1,5 +1,6 @@
 from PIL import Image
 from tqdm import tqdm
+from dirhash import dirhash
 import os
 
 # вычисляет хэш нескольких файлов
@@ -29,13 +30,31 @@ images = [os.path.join(path, file) for file in os.listdir(path)]
 images = [file for file in images
   if os.path.isfile(file)
   and any(
-    [file.lower().endswith(ext) for ext in (".jpg", "jpeg", ".png")]
+    [file.lower().endswith(ext) for ext in (".jpg", ".jpeg", ".png")]
   )
 ]
 
 # всегда нужно вычислять хэш изображений
 images_hash = files_hash(images)
 print("image hash:", images_hash)
+
+# вычислить время выполнения функции
+def timeit(func):
+  import time
+  def wrapper(*args, **kwargs):
+    start = time.time()
+    result = func(*args, **kwargs)
+    end = time.time()
+    print("time:", end - start)
+    return result
+  return wrapper
+
+dirhash_md5 = timeit(dirhash)(path, "md5", match=["*.jpg", "*.jpeg", "*.png"])
+# вывод:
+# так как нужно проверять актуальность кеша с помощью хеширования,
+# то данный способ крайне неоптимальный
+
+print("dirhash md5:", dirhash_md5)
 
 # проверяем кеш
 if os.path.exists(cache_path):
