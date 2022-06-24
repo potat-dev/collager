@@ -33,17 +33,34 @@ images = [file for file in images
   )
 ]
 
+# всегда нужно вычислять хэш изображений
+images_hash = files_hash(images)
+print("image hash:", images_hash)
+
 # проверяем кеш
 if os.path.exists(cache_path):
-  images_hash = files_hash(images)
-  cache_hash = ""
   with open(cache_path, "r") as file:
     cache_hash = file.readline().strip()
+    print("cache hash:", cache_hash)
+    print("valid:", images_hash == cache_hash)
     cache_data = [line.split(" | ") for line in file.read().splitlines()]
     cache_data = {file:ratio for file, ratio in cache_data}
 
 if not os.path.exists(cache_path) or cache_hash != images_hash:
-  pass # рассчет соотношения сторон для каждого изображения и сохранение в файл
+  # рассчет соотношения сторон для каждого изображения и сохранение в файл
+  cache_data = {}
+  for image in tqdm(images, desc="calculating ratios\t"):
+    # TODO: добавить проверку на неправильный формат изображения или битый файл
+    img = Image.open(image)
+    width, height = img.size
+    ratio = width / height
+    cache_data[image] = ratio
+    img.close()
+  print("saving cache")
+  with open(cache_path, "w") as file:
+    file.write(images_hash + "\n")
+    for image, ratio in cache_data.items():
+      file.write(f"{image} | {ratio}\n")
 
 collage = Image.new("RGBA", (width, height))
 
