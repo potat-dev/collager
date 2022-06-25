@@ -2,10 +2,10 @@ from PIL import Image
 from tqdm import tqdm
 import os, logging
 
-log_level = logging.DEBUG
+from center_crop import center_crop
 
-logger = logging.getLogger(__name__)
-logger.setLevel(log_level)
+log_level = logging.DEBUG
+log_format = '[%(levelname)s]: %(message)s'
 
 class TqdmLoggingHandler(logging.Handler):
   def __init__(self, level=logging.NOTSET):
@@ -19,14 +19,14 @@ class TqdmLoggingHandler(logging.Handler):
     except Exception:
       self.handleError(record)
 
-tqdm_handler = TqdmLoggingHandler()
-tqdm_handler.setLevel(log_level)
+logger = logging.getLogger(__name__)
+handler = TqdmLoggingHandler()
 
-formatter = logging.Formatter('[%(levelname)s]: %(message)s')
-tqdm_handler.setFormatter(formatter)
+logger.setLevel(log_level)
+handler.setLevel(log_level)
 
-# add the handler to the logger
-logger.addHandler(tqdm_handler)
+handler.setFormatter(logging.Formatter(log_format))
+logger.addHandler(handler)
 
 # путь к папке с картинками
 path = "C:\\Users\\Potato\\Desktop\\cats_dataset"
@@ -56,7 +56,7 @@ for image in tqdm(images[:], desc="calculating ratios"):
     img = Image.open(image)
     width, height = img.size
     ratio = width / height
-    cache_data[image] = ratio
+    cache_data[image] = {"width": width, "height": height, "ratio": ratio}
     img.close()
   except:
     logger.warning(f"unable to open the image: {os.path.basename(image)}")
@@ -64,8 +64,12 @@ for image in tqdm(images[:], desc="calculating ratios"):
 
 logger.debug(f"valid images: {len(images)}")
 
+# create collage
 collage = Image.new("RGBA", (width, height))
-
-for line_n in tqdm(range(lines)):
-  # logger.debug(f"line: {line_n}") # handler is working!
+for line_n in range(lines):
   pass # конструировать строку картинок и добавлять ее на коллаж
+
+# dump cache_data to file with json for debug
+# import json
+# with open("cache_data.json", "w") as f:
+#   json.dump(cache_data, f)
