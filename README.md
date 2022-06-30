@@ -2,7 +2,7 @@
 
 Creates a collage of a given size and number of lines using images from a given folder
 
-![collage demo](collage.png)
+![collage demo](preview.gif)
 
 ```python
 path = "/cats_dataset/best"

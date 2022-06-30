@@ -1,7 +1,8 @@
 from PIL import Image
 from tqdm import tqdm
-from center_crop import center_crop, create_line
 import os, logging
+
+from collage_utils import center_crop, create_line
 
 # settings
 

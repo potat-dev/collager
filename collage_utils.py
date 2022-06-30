@@ -48,21 +48,20 @@ def create_line(images, width, line_height, ratio_delta=0.01, scale_method=Image
     for item in selected_ratios
   ]
 
-  # создаем изображение с размерами width и line_height
-  line = Image.new("RGB", (width, line_height))
-  current_x = 0
-
   # применяем новые параметры к изображениям
+  current_x = 0
+  resized_images = []
   for i, image in enumerate(selected_ratios):
     img = Image.open(image["path"])
     img = center_crop(img, line_height, new_ratios[i], scale_method)
+    resized_images.append(img)
+  
+  # создаем изображение с размерами width и line_height
+  sum_width = sum([img.width for img in resized_images])
+  line = Image.new("RGB", (sum_width, line_height))
+  for i, img in enumerate(resized_images):
     # append img to line
     line.paste(img, (current_x, 0))
-    # TODO: сначала сохранять изображения в массив
-    # потом считать их общую ширину и создавать линию данной ширины
-    # а потом растягивать линию до нужного размера
-    # тогда не будет черных полос в конце
     current_x += img.width
-    img.close()
   
   return line.resize((width, line_height), scale_method), iters
