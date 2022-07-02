@@ -1,5 +1,30 @@
 from PIL import Image
 from random import choice
+from tqdm import tqdm
+import os
+
+# функция для получения всех файлов определенного расширения
+def get_files(path, ext):
+  files = [os.path.join(path, file) for file in os.listdir(path)]
+  return [
+    file for file in files
+    if os.path.isfile(file)
+    and os.path.splitext(file)[1][1:] in ext
+  ]
+
+# функция для получения соотношений сторон всех изображений
+def get_aspect_ratios(images):
+  ratios = []
+  for image in tqdm(images[:], desc="calculating ratios"):
+    try:
+      img = Image.open(image)
+      ratios.append({"path": image, "ratio": img.width / img.height})
+      img.close()
+    except:
+      logger.warning(f"unable to open the image: {os.path.basename(image)}")
+      images.remove(image)
+  # logger.debug(f"valid images: {len(ratios)}")
+  return ratios
 
 # функция для обрезки изображения по центру с заданным соотношением сторон
 def center_crop(img, height, crop_ratio, scale_method):

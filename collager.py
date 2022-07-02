@@ -1,16 +1,40 @@
 from PIL import Image
-from tqdm import tqdm
-import os, logging
+import logging
 
-from collage_utils import center_crop, create_line
+from collage_utils import *
+
+# collager class template
+
+class Collager:
+  #? repeat control consts
+  # ALLOW_REPEATS = 0
+  # NO_REPEATS = 1
+  # NO_REPEATS_LINE = 2
+  # NO_REPEATS_NEIGHBOR_LINES = 3
+
+  def __init__(self, path):
+    self.images = get_files(path, ['jpg', 'jpeg', 'png'])
+    self.image_data = get_aspect_ratios(self.images)
+
+  def collage(self, width, height, lines, ratio_delta=0.05, scale_method=Image.LANCZOS): # repeat_mode=ALLOW_REPEATS):
+    collage = Image.new("RGBA", (width, height))
+    line_height = height // lines
+
+    for line_n in range(lines):
+      line, iters = create_line(self.image_data, width, line_height, ratio_delta, scale_method)
+      # logger.debug(f"line {line_n} created, {iters} iterations")
+      collage.paste(line, (0, line_n * line_height))
+
+    return collage
 
 # settings
 
 path = "C:\\Users\\Potato\\Desktop\\cats_dataset\\best"
 width, height = (1920, 1080)
 lines = 5
-ratio_delta = 0.01
+ratio_delta = 0.05
 scale_method = Image.LANCZOS
+# repeat_mode = Collager.ALLOW_REPEATS
 
 log_level = logging.DEBUG
 log_format = '[%(levelname)s]: %(message)s'
@@ -38,40 +62,8 @@ handler.setLevel(log_level)
 handler.setFormatter(logging.Formatter(log_format))
 logger.addHandler(handler)
 
-# get all images in folder
+# run
 
-images = [os.path.join(path, file) for file in os.listdir(path)]
-images = [file for file in images
-  if os.path.isfile(file)
-  and any(
-    [file.lower().endswith(ext) for ext in (".jpg", ".jpeg", ".png")]
-  )
-]
-
-# calculate aspect ratio for each image
-
-logger.debug(f"images in folder: {len(images)}")
-
-cache_data = []
-for image in tqdm(images[:], desc="calculating ratios"):
-  try:
-    img = Image.open(image)
-    cache_data.append({"path": image, "ratio": img.width / img.height})
-    img.close()
-  except:
-    logger.warning(f"unable to open the image: {os.path.basename(image)}")
-    images.remove(image)
-
-logger.debug(f"valid images: {len(images)}")
-
-# create collage
-
-collage = Image.new("RGBA", (width, height))
-line_height = height // lines
-
-for line_n in range(lines):
-  line, iters = create_line(cache_data, width, line_height, ratio_delta, scale_method)
-  logger.debug(f"line {line_n} created, {iters} iterations")
-  collage.paste(line, (0, line_n * line_height))
-
+collager = Collager(path)
+collage = collager.collage(width, height, lines, ratio_delta, scale_method)
 collage.save("collage.png")
