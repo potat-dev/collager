@@ -1,49 +1,78 @@
-from PIL import Image
 from collage_utils import *
+from sys import stderr
+from PIL import Image
+
+from loguru import logger
+logger.remove()
+
+log_level = "DEBUG"
+log_format = "{module} : <lvl>{level}</lvl> : {message}"
+logger.add(stderr, level=log_level, format=log_format)
 
 
 class Collager:
-  #? repeat control consts
-  # ALLOW_REPEATS = 0
-  # NO_REPEATS = 1
-  # NO_REPEATS_LINE = 2
-  # NO_REPEATS_NEIGHBOR_LINES = 3
+    '''
+    Collager class - for generating collages from random images
 
-  default_ratio_delta = 0.05
-  default_scale_method = Image.LANCZOS
+    Methods:
+    - collage: creates a collage from the image_data
+    - update_path: updates the path and scans it for images
+    '''
+    file_extensions = ["jpg", "jpeg", "png", "bmp"]
 
-  def __init__(self, path):
-    self.images = get_files(path, ['jpg', 'jpeg', 'png'])
-    self.image_data = get_aspect_ratios(self.images)
+    def __init__(self, path: str | list[str]) -> None:
+        '''
+        Creates a new collager instance
+        - scans the given path / multiple paths for images
+        - calculates their aspect ratios
+        '''
+        match path:
+            case str():
+                self.image_paths = [path]
+            case list():
+                self.image_paths = path
+            case _:
+                raise TypeError("path must be a string or a list of strings")
 
-  def collage(self, width, height, lines,
-              ratio_delta=default_ratio_delta,
-              scale_method=default_scale_method): # repeat_mode=ALLOW_REPEATS):
+        self.update_path(self.image_paths)
 
-    collage = Image.new("RGBA", (width, height))
-    line_height = height // lines
+    def collage(self, width: int, height: int, lines: int, ratio_delta: int = 0.05,
+                scale_method=Image.Resampling.LANCZOS) -> Image.Image:
+        '''
+        Creates a collage from the image_data
+        - width: the width of the collage
+        - height: the height of the collage
+        - lines: the number of lines in the collage
+        - ratio_delta: the maximum variation of the aspect ratio when cropping images
+        - scale_method: the method to use for scaling the images
 
-    for line_n in range(lines):
-      line, iters = create_line(self.image_data, width, line_height, ratio_delta, scale_method)
-      # logger.debug(f"line {line_n} created, {iters} iterations")
-      collage.paste(line, (0, line_n * line_height))
+        TODO:
+        - add support for horizontal / vertical collages
+        - add duplicates control (e.g. no duplicates in a line, no duplicates in a neighbor lines, etc.)
+        '''
+        collage = Image.new("RGBA", (width, height))
+        line_height = height // lines
 
-    return collage
+        for line_n in range(lines):
+            line = create_line(self.image_data, width,
+                               line_height, ratio_delta, scale_method)
+            collage.paste(line, (0, line_n * line_height))
 
-  # устанавливает новый путь и сканирует его
-  # TODO: добавление нескольких директорий
-  def update_path(path):
-    pass
+        return collage
 
-
-if __name__ == "__main__":
-  path="C:\\Users\\Potato\\Desktop\\cats_dataset\\best"
-  width, height = (1920, 1080)
-  lines = 5
-  ratio_delta = 0.05
-  scale_method = Image.LANCZOS
-  # repeat_mode = Collager.ALLOW_REPEATS
-
-  collager = Collager(path)
-  collage = collager.collage(width, height, lines, ratio_delta, scale_method)
-  collage.save("collage.png")
+    def update_path(self, path: str | list[str]) -> None:
+        '''
+        Updates the path and scans it for images
+        Then updates the image_data with new aspect ratios
+        '''
+        match path:
+            case str():
+                self.image_files = get_files(path, self.file_extensions)
+                self.image_data = get_aspect_ratios(self.image_files)
+            case list():
+                self.image_files = []
+                for p in path:
+                    self.image_files += get_files(p, self.file_extensions)
+                self.image_data = get_aspect_ratios(self.image_files)
+            case _:
+                raise TypeError("path must be a string or a list of strings")

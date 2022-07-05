@@ -6,8 +6,7 @@ import os
 
 def get_files(path: str, ext: list[str]) -> list[str]:
     '''
-    Get all files in path with extension in ext
-    Exclude folders, hidden files, etc.
+    Get all files in path with extension in ext, exclude folders, hidden files, etc.
     '''
     return list(filter(
         lambda file:
@@ -21,9 +20,11 @@ def get_files(path: str, ext: list[str]) -> list[str]:
 def get_aspect_ratios(images):
     '''
     Get aspect ratios of images
-    Returns list of dicts with keys:
-        path: path to image
-        ratio: aspect ratio of image
+
+    Returns:
+    - list of dicts with keys:
+        - path: path to image
+        - ratio: aspect ratio of image
     '''
     ratios = []
     for image in tqdm(images[:], desc="calculating ratios"):
@@ -41,8 +42,7 @@ def get_aspect_ratios(images):
 
 def center_crop(img, height, crop_ratio, scale_method):
     '''
-    Crop image to center with crop_ratio and resize to height proportionally
-    (crop_ratio = width / height)
+    Crop image to center with crop_ratio (width / height) and resize to height proportionally
     '''
     crop_ratio = crop_ratio
     width = round(height * crop_ratio)
@@ -57,10 +57,9 @@ def center_crop(img, height, crop_ratio, scale_method):
     return img.crop(size).resize((width, height), scale_method)
 
 
-def create_line(images, width, line_height, ratio_delta=0.01, scale_method=Image.LANCZOS):
+def create_line(images, width, line_height, ratio_delta=0.05, scale_method=Image.Resampling.LANCZOS):
     '''
     Create line of random images from images list with given width and height
-    Returns tuple of line image and number of iterations - for debug
     '''
     def sum_ratios(items):
         return sum([item["ratio"] for item in items])
