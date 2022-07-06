@@ -1,13 +1,18 @@
+from turtle import color
 from collage_utils import *
-from sys import stderr
+from tqdm import tqdm
 from PIL import Image
 
 from loguru import logger
 logger.remove()
 
 log_level = "DEBUG"
-log_format = "{module} : <lvl>{level}</lvl> : {message}"
-logger.add(stderr, level=log_level, format=log_format)
+logger.add(
+    lambda msg: tqdm.write(msg, end=""),
+    format="<lvl>{level}:</lvl> {message}",
+    level=log_level,
+    colorize=True
+)
 
 
 class Collager:
@@ -26,15 +31,7 @@ class Collager:
         - scans the given path / multiple paths for images
         - calculates their aspect ratios
         '''
-        match path:
-            case str():
-                self.image_paths = [path]
-            case list():
-                self.image_paths = path
-            case _:
-                raise TypeError("path must be a string or a list of strings")
-
-        self.update_path(self.image_paths)
+        self.update_path(path)
 
     def collage(self, width: int, height: int, lines: int, ratio_delta: int = 0.05,
                 scale_method=Image.Resampling.LANCZOS) -> Image.Image:
@@ -52,12 +49,17 @@ class Collager:
         '''
         collage = Image.new("RGBA", (width, height))
         line_height = height // lines
+        logger.debug(f"height: {height}, line_height: {line_height}")
 
-        for line_n in range(lines):
-            line = create_line(self.image_data, width,
-                               line_height, ratio_delta, scale_method)
+        for line_n in tqdm(range(lines), desc="creating lines"):
+            logger.debug(f"creating line # {line_n}")
+            line, iters = create_line(self.image_data, width,
+                                      line_height, ratio_delta, scale_method)
+            logger.success(
+                f"created line # {line_n} with {iters} iteration" + ("s" if iters > 1 else ""))
             collage.paste(line, (0, line_n * line_height))
 
+        logger.success(f"created collage with {lines} lines")
         return collage
 
     def update_path(self, path: str | list[str]) -> None:
@@ -67,12 +69,22 @@ class Collager:
         '''
         match path:
             case str():
+                self.image_path = [path]
+                logger.debug(f"updated path to {path}")
                 self.image_files = get_files(path, self.file_extensions)
+                logger.debug(f"found {len(self.image_files)} images")
                 self.image_data = get_aspect_ratios(self.image_files)
+                logger.success(
+                    f"found {len(self.image_data)} images that can be used")
             case list():
+                self.image_path = path
+                logger.debug(f"updated path to {path}")
                 self.image_files = []
                 for p in path:
                     self.image_files += get_files(p, self.file_extensions)
+                logger.debug(f"found {len(self.image_files)} images")
                 self.image_data = get_aspect_ratios(self.image_files)
+                logger.success(
+                    f"found {len(self.image_data)} images that can be used")
             case _:
                 raise TypeError("path must be a string or a list of strings")

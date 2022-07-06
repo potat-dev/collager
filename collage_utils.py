@@ -1,7 +1,14 @@
-from PIL import Image
+from inspect import trace
+from loguru import logger
+from PIL import Image, ImageFile
 from random import choice
 from tqdm import tqdm
 import os
+
+# to fix "OSError: broken data stream when reading image file"
+# and "OSError: image file is truncated"
+# according to: https://stackoverflow.com/a/23575424/15301038
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 
 def get_files(path: str, ext: list[str]) -> list[str]:
@@ -17,7 +24,7 @@ def get_files(path: str, ext: list[str]) -> list[str]:
     ))
 
 
-def get_aspect_ratios(images):
+def get_aspect_ratios(images: list[str]) -> list[dict[str, float]]:
     '''
     Get aspect ratios of images
 
@@ -27,20 +34,23 @@ def get_aspect_ratios(images):
         - ratio: aspect ratio of image
     '''
     ratios = []
+    broken_files = []
     for image in tqdm(images[:], desc="calculating ratios"):
         try:
             img = Image.open(image)
             ratios.append({"path": image, "ratio": img.width / img.height})
             img.close()
         except:
-            # warning "unable to open the image: {os.path.basename(image)}"
-            tqdm.write(f"unable to open the image: {os.path.basename(image)}")
+            broken_files.append(os.path.basename(image))
+            logger.warning(f"Broken file: {image}")
+            # tqdm.write(f"unable to open the image: {os.path.basename(image)}")
             images.remove(image)
-    # debug "valid images: {len(ratios)}"
+
     return ratios
 
 
-def center_crop(img, height, crop_ratio, scale_method):
+# @logger.catch()
+def center_crop(img: Image.Image, height: int, crop_ratio: float, scale_method: Image.Resampling) -> Image.Image:
     '''
     Crop image to center with crop_ratio (width / height) and resize to height proportionally
     '''
@@ -54,10 +64,17 @@ def center_crop(img, height, crop_ratio, scale_method):
         # crop the top and bottom edges:
         offset = round((img.height - img.width / crop_ratio) / 2)
         size = (0, offset, img.width, img.height - offset)
+
+    # crop and resize image
+    logger.debug(
+        f"crop image: [ {img.width:4} × {img.height:<4} ] " +
+        f"-> [ {size[2] - size[0]:4} × {size[3] - size[1]:<4} ] " +
+        f"resize: [ {width:4} × {height:<4} ]")
     return img.crop(size).resize((width, height), scale_method)
 
 
-def create_line(images, width, line_height, ratio_delta=0.05, scale_method=Image.Resampling.LANCZOS):
+def create_line(image_data: list[dict[str, float]], width: int, line_height: int, ratio_delta: float = 0.05,
+                scale_method: Image.Resampling = Image.Resampling.LANCZOS) -> tuple[Image.Image, int]:
     '''
     Create line of random images from images list with given width and height
     '''
@@ -68,25 +85,29 @@ def create_line(images, width, line_height, ratio_delta=0.05, scale_method=Image
     line_ratio = width / line_height
     min_ratio = width / (line_height + height_shift)
     max_ratio = width / (line_height - height_shift)
+    logger.trace(f"min_ratio: {min_ratio}, max_ratio: {max_ratio}")
 
     iters = 0
     selected_ratios = []
     while selected_ratios == []:
         iters += 1
         while sum_ratios(selected_ratios) < min_ratio:
-            selected_ratios.append(choice(images))
+            selected_ratios.append(choice(image_data))
             # TODO: не допускать повторы изображений
             # 3 уровня настройки повторов
             # 1) разрешить любые повторы
             # 2) запретить повторы в одной линии
             # 3) запретить повторы во всем коллаже
+        logger.trace(
+            f"sum_ratios at iter {iters}: {sum_ratios(selected_ratios)}")
         if sum_ratios(selected_ratios) > max_ratio:
             selected_ratios = []
 
     curr_ratio = sum_ratios(selected_ratios)
     ratio_delta = line_ratio - curr_ratio
+    logger.debug(f"ratio delta: {ratio_delta:.4f}")
 
-    old_ratios = [item["ratio"] for item in selected_ratios]
+    # old_ratios = [item["ratio"] for item in selected_ratios]
     new_ratios = [
         item["ratio"] + ratio_delta * item["ratio"] / curr_ratio
         for item in selected_ratios
@@ -109,4 +130,5 @@ def create_line(images, width, line_height, ratio_delta=0.05, scale_method=Image
         current_x += img.width
 
     # resize line to ideal width
+    logger.debug(f"resize line to {width} × {line_height}")
     return line.resize((width, line_height), scale_method), iters
