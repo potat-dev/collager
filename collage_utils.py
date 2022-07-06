@@ -1,4 +1,3 @@
-from inspect import trace
 from loguru import logger
 from PIL import Image, ImageFile
 from random import choice
@@ -34,22 +33,17 @@ def get_aspect_ratios(images: list[str]) -> list[dict[str, float]]:
         - ratio: aspect ratio of image
     '''
     ratios = []
-    broken_files = []
     for image in tqdm(images[:], desc="calculating ratios"):
         try:
             img = Image.open(image)
             ratios.append({"path": image, "ratio": img.width / img.height})
             img.close()
         except:
-            broken_files.append(os.path.basename(image))
             logger.warning(f"Broken file: {image}")
-            # tqdm.write(f"unable to open the image: {os.path.basename(image)}")
             images.remove(image)
-
     return ratios
 
 
-# @logger.catch()
 def center_crop(img: Image.Image, height: int, crop_ratio: float, scale_method: Image.Resampling) -> Image.Image:
     '''
     Crop image to center with crop_ratio (width / height) and resize to height proportionally
@@ -77,6 +71,8 @@ def create_line(image_data: list[dict[str, float]], width: int, line_height: int
                 scale_method: Image.Resampling = Image.Resampling.LANCZOS) -> tuple[Image.Image, int]:
     '''
     Create line of random images from images list with given width and height
+
+    TODO: prevent infinite loop
     '''
     def sum_ratios(items):
         return sum([item["ratio"] for item in items])
@@ -107,7 +103,6 @@ def create_line(image_data: list[dict[str, float]], width: int, line_height: int
     ratio_delta = line_ratio - curr_ratio
     logger.debug(f"ratio delta: {ratio_delta:.4f}")
 
-    # old_ratios = [item["ratio"] for item in selected_ratios]
     new_ratios = [
         item["ratio"] + ratio_delta * item["ratio"] / curr_ratio
         for item in selected_ratios
@@ -123,6 +118,7 @@ def create_line(image_data: list[dict[str, float]], width: int, line_height: int
 
     # create image with width = sum of selected images
     sum_width = sum([img.width for img in resized_images])
+    logger.debug(f"create line: {sum_width} × {line_height}")
     line = Image.new("RGB", (sum_width, line_height))
     for i, img in enumerate(resized_images):
         # append img to line

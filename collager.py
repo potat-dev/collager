@@ -47,8 +47,8 @@ class Collager:
         - add support for horizontal / vertical collages
         - add duplicates control (e.g. no duplicates in a line, no duplicates in a neighbor lines, etc.)
         '''
-        collage = Image.new("RGBA", (width, height))
         line_height = height // lines
+        collage = Image.new("RGBA", (width, line_height * lines))
         logger.debug(f"height: {height}, line_height: {line_height}")
 
         for line_n in tqdm(range(lines), desc="creating lines"):
@@ -60,7 +60,8 @@ class Collager:
             collage.paste(line, (0, line_n * line_height))
 
         logger.success(f"created collage with {lines} lines")
-        return collage
+        logger.debug(f"resize collage: {collage.width} × {collage.height} -> {width} × {height}")
+        return collage.resize((width, height), scale_method)
 
     def update_path(self, path: str | list[str]) -> None:
         '''
