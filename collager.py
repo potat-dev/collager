@@ -6,7 +6,7 @@ import os
 from loguru import logger
 logger.remove()
 
-log_level = "DEBUG"
+log_level = "WARNING"
 logger.add(
     lambda msg: tqdm.write(msg, end=""),
     format="<lvl>{level}:</lvl> {message}",
@@ -84,7 +84,7 @@ class Collager:
             [
                 os.path.join(path, file) for file
                 in tqdm_wrapper(os.listdir(path), log_level)
-            ]
+                ]
         ))
 
     def get_aspect_ratios(self, images: list[str]) -> list[dict[str, float]]:
@@ -97,6 +97,7 @@ class Collager:
             - ratio: aspect ratio of image
         '''
         ratios = []
+        # TODO: use tqdm_wrapper to show progress
         for image in tqdm(images[:], desc="calculating ratios"):
             try:
                 img = Image.open(image)
@@ -222,3 +223,41 @@ class Collager:
         logger.debug(
             f"resize collage: {collage.width} × {collage.height} -> {width} × {height}")
         return collage.resize((width, height), scale_method)
+
+
+if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description='Collager CLI')
+
+    parser.add_argument("-q", "--quiet", action="count", default=0,
+                        help='quiet level (q - ERROR, qq - CRITICAL)')
+    parser.add_argument("-v", "--verbose", action="count", default=0,
+                        help='verbose level (v - INFO, vv - DEBUG, vvv - TRACE)')
+
+    args = parser.parse_args()
+
+    if args.quiet > 2:
+        raise ValueError("quiet level must be <= 2")
+    if args.verbose > 3:
+        raise ValueError("verbose level must be <= 3")
+
+    levels = {
+        "quiet": [None, "ERROR", "CRITICAL"],
+        "verbose": ["WARNING", "INFO", "DEBUG", "TRACE"]
+    }
+
+    log_level = levels["quiet"][args.quiet] if args.quiet > 0 else levels["verbose"][args.verbose]
+    print(f"{log_level=}")
+
+    logger.remove()
+    logger.add(
+        lambda msg: tqdm.write(msg, end=""),
+        format="<lvl>{level}:</lvl> {message}",
+        level=log_level,
+        colorize=True
+    )
+
+    # test
+    collager = Collager("D:/Projects/cats_dataset/best")
+    collage = collager.collage(width=1920, height=1080, lines=3)
+    collage.save("collage.png")
