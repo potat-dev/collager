@@ -69,6 +69,13 @@ class Collager:
         '''
         Get all files in path with extension in ext, exclude folders, hidden files, etc.
         '''
+        def tqdm_wrapper(iterable, log_level):
+            # TODO: make this wrapper global
+            if log_level == "DEBUG":
+                return tqdm(iterable, desc="scanning path")
+            else:
+                return iterable
+
         return list(filter(
             lambda file:
                 os.path.isfile(file) and
@@ -76,7 +83,8 @@ class Collager:
                 os.path.splitext(file)[1][1:] in ext,
             [
                 os.path.join(path, file) for file
-                in tqdm(os.listdir(path), desc="scanning path")]
+                in tqdm_wrapper(os.listdir(path), log_level)
+            ]
         ))
 
     def get_aspect_ratios(self, images: list[str]) -> list[dict[str, float]]:
