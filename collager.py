@@ -1,18 +1,12 @@
+from turtle import width
 from PIL import Image, ImageFile
 from random import choice
 from tqdm import tqdm
 import os
 
 from loguru import logger
-logger.remove()
-
 log_level = "WARNING"
-logger.add(
-    lambda msg: tqdm.write(msg, end=""),
-    format="<lvl>{level}:</lvl> {message}",
-    level=log_level,
-    colorize=True
-)
+logger.remove()
 
 # to fix "OSError: broken data stream when reading image file"
 # and "OSError: image file is truncated"
@@ -84,7 +78,7 @@ class Collager:
             [
                 os.path.join(path, file) for file
                 in tqdm_wrapper(os.listdir(path), log_level)
-                ]
+            ]
         ))
 
     def get_aspect_ratios(self, images: list[str]) -> list[dict[str, float]]:
@@ -227,29 +221,39 @@ class Collager:
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description='Collager CLI')
+    parser = argparse.ArgumentParser(
+        formatter_class=lambda prog: argparse.HelpFormatter(prog, max_help_position=42))
 
-    parser.add_argument("-q", "--quiet", action="count", default=0,
-                        help='quiet level (q - ERROR, qq - CRITICAL)')
-    parser.add_argument("-v", "--verbose", action="count", default=0,
-                        help='verbose level (v - INFO, vv - DEBUG, vvv - TRACE)')
+    parser.add_argument(
+        '-q', '--quiet', action='count', default=0,
+        help='quiet mode (q - errors, qq - critical)')
+    parser.add_argument(
+        '-v', '--verbose', action='count', default=0,
+        help='verbose mode (v - info, vv - debug, vvv - trace)')
+    parser.add_argument(
+        'dir', type=str, nargs='*', default=os.getcwd(),
+        help='directory(-ies) to scan')
+    parser.add_argument(
+        '-s', '--size', type=str, required=True,
+        help='collage size (width x height, length, or \'screen\')')
+    parser.add_argument(
+        '-l', '--lines', type=int, required=True,
+        help='number of lines in collage')
 
     args = parser.parse_args()
 
-    if args.quiet > 2:
-        raise ValueError("quiet level must be <= 2")
     if args.verbose > 3:
         raise ValueError("verbose level must be <= 3")
 
-    levels = {
-        "quiet": [None, "ERROR", "CRITICAL"],
-        "verbose": ["WARNING", "INFO", "DEBUG", "TRACE"]
-    }
+    if args.quiet > 2:
+        raise ValueError("quiet level must be <= 2")
 
-    log_level = levels["quiet"][args.quiet] if args.quiet > 0 else levels["verbose"][args.verbose]
-    print(f"{log_level=}")
+    if args.lines < 1:
+        raise ValueError("number of lines must be >= 1")
 
-    logger.remove()
+    levels = ["ERROR", "CRITICAL", "WARNING", "INFO", "DEBUG", "TRACE"]
+    log_level = levels[args.verbose - args.quiet + levels.index(log_level)]
+
     logger.add(
         lambda msg: tqdm.write(msg, end=""),
         format="<lvl>{level}:</lvl> {message}",
@@ -257,7 +261,28 @@ if __name__ == "__main__":
         colorize=True
     )
 
-    # test
-    collager = Collager("D:/Projects/cats_dataset/best")
-    collage = collager.collage(width=1920, height=1080, lines=3)
+    # TODO: проверка доступности директорий
+    collager = Collager(args.dir)
+
+    # run collage generator
+    size = args.size.lower().split('x')
+    match size:
+        case ["screen"]:
+            def get_screen_size(): pass  # TODO: получить размер экрана
+            collage = collager.collage(1920, 1080, args.lines)
+        case [width, height]:
+            collage = collager.collage(int(width), int(height), args.lines)
+        case [lenght]:
+            collage = collager.collage(int(lenght), int(lenght), args.lines)
+        case _:
+            raise ValueError(f"invalid size {args.size}")
+
     collage.save("collage.png")
+else:
+    # Default logger config
+    logger.add(
+        lambda msg: tqdm.write(msg, end=""),
+        format="<lvl>{level}:</lvl> {message}",
+        level="WARNING",
+        colorize=True
+    )
